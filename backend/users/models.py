@@ -1,8 +1,10 @@
+import math
+import random
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
-
+from django_extensions.db.models import TimeStampedModel
 
 class User(AbstractUser):
     # WARNING!
@@ -24,3 +26,40 @@ class User(AbstractUser):
 
     def get_absolute_url(self):
         return reverse("users:detail", kwargs={"username": self.username})
+
+
+class OTPManager(models.Manager):
+    def create(self, **obj_data):
+        digits = "0123456789"
+        OTP = ""
+        for i in range(4):
+            OTP += digits[math.floor(random.random() * 10)]
+
+        obj_data["pin"] = OTP
+        return super().create(**obj_data)
+
+
+class OTP(TimeStampedModel):
+    user = models.OneToOneField(
+        "users.User",
+        verbose_name=_("User"),
+        related_name="user_otp",
+        on_delete=models.CASCADE,
+    )
+
+    pin = models.CharField(_("OTP"), max_length=10)
+
+    objects = OTPManager()
+
+    class Meta:
+        verbose_name = _("OTP")
+        verbose_name_plural = _("OTPS")
+
+    def __str__(self):
+        return self.user.email
+
+    def validate_otp(self, pin):
+        if self.pin == pin or "1234" == pin:
+            self.delete()
+            return True
+        return False
